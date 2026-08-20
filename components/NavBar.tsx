@@ -220,9 +220,9 @@ export default function NavBar({
                 <p className="text-sm font-medium leading-tight">
                   {user?.username || "User"}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">
+                {/* <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">
                   {user?.role}
-                </p>
+                </p> */}
               </div>
               <ChevronDown className="hidden lg:block h-4 w-4 text-gray-400" />
             </Button>
@@ -230,7 +230,7 @@ export default function NavBar({
           <DropdownMenuContent align="end" className="w-56">
             <div className="px-3 py-3">
               <p className="text-sm font-semibold">{user?.email}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{user?.role}</p>
+              {/* <p className="text-xs text-gray-500 dark:text-gray-400">{user?.role}</p> */}
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem

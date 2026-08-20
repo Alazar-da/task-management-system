@@ -4,6 +4,9 @@ export const queryKeys = {
     all: ['user'] as const,
     profile: () => [...queryKeys.user.all, 'profile'] as const,
   },
+  users: {
+    all: ['users'] as const,
+  },
   profiles: {
     all: ['profiles'] as const,
     detail: (id: string) => [...queryKeys.profiles.all, id] as const,
@@ -14,11 +17,12 @@ export const queryKeys = {
     list: (filters?: any) => [...queryKeys.tasks.lists(), { filters }] as const,
     details: () => [...queryKeys.tasks.all, 'detail'] as const,
     detail: (id: string) => [...queryKeys.tasks.details(), id] as const,
+    byProject: (projectId: string) => [...queryKeys.tasks.all, 'project', projectId] as const,
   },
-  categories: {
-    all: ['categories'] as const,
-    lists: () => [...queryKeys.categories.all, 'list'] as const,
-    detail: (id: string) => [...queryKeys.categories.all, id] as const,
+  projects: {
+    all: ['projects'] as const,
+    lists: () => [...queryKeys.projects.all, 'list'] as const,
+    detail: (id: string) => [...queryKeys.projects.all, id] as const,
   },
   notifications: {
     all: ['notifications'] as const,

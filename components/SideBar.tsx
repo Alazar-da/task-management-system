@@ -62,12 +62,12 @@ export default function Sidebar({
   const supabase = createClient();
 
   const mainItems: MenuItem[] = [
-    { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-    { name: "My Tasks", href: "/admin/categories", icon: CheckSquare, badge: categoryCount },
-    { name: "Projects", href: "/admin/sub-categories", icon: FolderKanban, badge: subCategoryCount },
-    { name: "Calendar", href: "/admin/products", icon: Calendar, badge: productCount },
-    { name: "Reports", href: "/admin/reports", icon: BarChart3 },
-    { name: "Teams", href: "/admin/teams", icon: Users },
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Tasks", href: "/tasks", icon: CheckSquare, badge: categoryCount },
+    { name: "Projects", href: "/projects", icon: FolderKanban, badge: subCategoryCount },
+    { name: "Calendar", href: "/products", icon: Calendar, badge: productCount },
+    { name: "Reports", href: "/reports", icon: BarChart3 },
+    { name: "Teams", href: "/teams", icon: Users },
   ];
 
   const accountItems: MenuItem[] = [
@@ -239,9 +239,9 @@ export default function Sidebar({
                   <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
                     {user.username}
                   </p>
-                  <p className="truncate text-[11px] text-gray-500 dark:text-gray-400">
+                  {/* <p className="truncate text-[11px] text-gray-500 dark:text-gray-400">
                     {user.role}
-                  </p>
+                  </p> */}
                 </div>
               )}
             </div>
