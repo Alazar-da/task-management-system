@@ -65,16 +65,14 @@ export default function Sidebar({
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Tasks", href: "/tasks", icon: CheckSquare, badge: categoryCount },
     { name: "Projects", href: "/projects", icon: FolderKanban, badge: subCategoryCount },
-    { name: "Calendar", href: "/products", icon: Calendar, badge: productCount },
+    { name: "Calendar", href: "/calendar", icon: Calendar, badge: productCount },
     { name: "Reports", href: "/reports", icon: BarChart3 },
-    { name: "Teams", href: "/teams", icon: Users },
   ];
 
   const accountItems: MenuItem[] = [
     { name: "Activity", href: "/activity", icon: Activity },
     { name: "File", href: "/file", icon: Folder },
     { name: "Profile", href: "/profile", icon: UserCircle },
-    { name: "Settings", href: "/settings", icon: Settings },
   ];
 
   const handleLogout = async () => {
