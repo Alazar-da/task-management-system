@@ -58,7 +58,7 @@ export default function LoginForm() {
   const [mode, setMode] = useState<"signup" | "signin">("signin");
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-    const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const isSignUp = mode === "signup";
 
@@ -246,7 +246,7 @@ export default function LoginForm() {
 
               {!isSignUp && (
                 <a
-                  href="/forgot-password"
+                  href="/auth/forgot-password"
                   className="text-sm underline underline-offset-4"
                 >
                   Forgot your password?

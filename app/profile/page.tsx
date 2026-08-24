@@ -4,12 +4,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/hooks/use-user";
-import { useProfile, useUpdateProfile, useUploadAvatar, useUpdatePassword } from "@/services/userService";
+import { useProfile, useUpdateProfile, useUploadAvatar, useUpdatePassword, useDeleteAvatar } from "@/services/userService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -26,7 +25,6 @@ import {
   FieldDescription,
   FieldGroup,
   FieldLabel,
-  FieldSeparator,
 } from "@/components/ui/field";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -36,13 +34,16 @@ import {
   User,
   Mail,
   Camera,
-  Bell,
   Lock,
   Trash2,
   Save,
   Loader2,
   AlertTriangle,
   CheckCircle2,
+  Eye,
+  EyeOff,
+  Upload,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -65,24 +66,26 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 export default function ProfilePage() {
-  const { user: currentUser, loading, userRefetch } = useUser();
+  const { user: currentUser, loading: userLoading, refetch: userRefetch } = useUser();
   const router = useRouter();
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleteAvatarDialogOpen, setIsDeleteAvatarDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const [notificationSettings, setNotificationSettings] = useState({
-    emailNotifications: true,
-    pushNotifications: true,
-    taskReminders: true,
-    projectUpdates: false,
-  });
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [isDeletingAvatar, setIsDeletingAvatar] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // TanStack Query hooks
-  const { data: user, isLoading, refetch } = useProfile(currentUser?.id);
+  const { data: user, isLoading: profileLoading, refetch } = useProfile(currentUser?.id);
   const updateProfileMutation = useUpdateProfile();
   const uploadAvatarMutation = useUploadAvatar();
   const updatePasswordMutation = useUpdatePassword();
+  const deleteAvatarMutation = useDeleteAvatar();
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -111,10 +114,10 @@ export default function ProfilePage() {
 
   // Redirect if not authenticated
   useEffect(() => {
-    if (!loading && !currentUser) {
+    if (!userLoading && !currentUser) {
       router.push("/auth/login");
     }
-  }, [currentUser, loading, router]);
+  }, [currentUser, userLoading, router]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -135,6 +138,36 @@ export default function ProfilePage() {
         setAvatarPreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveAvatarFile = () => {
+    setAvatarFile(null);
+    setAvatarPreview(null);
+  };
+
+  const handleDeleteAvatar = async () => {
+    if (!user) return;
+
+    setIsDeletingAvatar(true);
+    try {
+      await deleteAvatarMutation.mutateAsync({
+        userId: user.id,
+        avatarUrl: user.avatar_url || undefined,
+      });
+
+      // Update local state
+      setAvatarFile(null);
+      setAvatarPreview(null);
+      setIsDeleteAvatarDialogOpen(false);
+      
+      await refetch();
+      await userRefetch();
+      toast.success("Avatar removed successfully!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to remove avatar");
+    } finally {
+      setIsDeletingAvatar(false);
     }
   };
 
@@ -164,35 +197,73 @@ export default function ProfilePage() {
 
       setAvatarFile(null);
       setAvatarPreview(null);
-      refetch();
+      await refetch();
       await userRefetch();
-    } catch (error) {
-      // Error handled in mutation
+      toast.success("Profile updated successfully!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update profile");
     }
   };
 
   const onPasswordSubmit = async (values: PasswordFormValues) => {
+    setIsUpdatingPassword(true);
     try {
-      await updatePasswordMutation.mutateAsync(values.newPassword);
-      passwordForm.reset();
-    } catch (error) {
-      // Error handled in mutation
+      const supabase = createClient();
+      
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser?.email) {
+        toast.error("Unable to verify current password");
+        setIsUpdatingPassword(false);
+        return;
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: authUser.email,
+        password: values.currentPassword,
+      });
+
+      if (signInError) {
+        toast.error("Current password is incorrect");
+        setIsUpdatingPassword(false);
+        return;
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        password: values.newPassword,
+      });
+
+      if (error) {
+        if (error.message.includes("same as the old password")) {
+          toast.error("New password must be different from current password");
+        } else {
+          throw error;
+        }
+      } else {
+        toast.success("Password updated successfully!");
+        passwordForm.reset();
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update password");
+    } finally {
+      setIsUpdatingPassword(false);
     }
   };
 
   const handleDeleteAccount = async () => {
     if (deleteConfirmText !== "DELETE") return;
 
+    setIsDeletingAccount(true);
     try {
       const supabase = createClient();
       
-      // Delete avatar from storage
+      // Delete avatar from storage if exists
       if (user?.avatar_url) {
-        const filePath = user.avatar_url.split('/').slice(-2).join('/');
-        await supabase.storage.from("profiles").remove([filePath]);
+        const filePath = user.avatar_url.split('/').pop();
+        if (filePath) {
+          await supabase.storage.from("profiles").remove([`avatars/${filePath}`]);
+        }
       }
 
-      // Delete profile
       const { error: deleteProfileError } = await supabase
         .from("profiles")
         .delete()
@@ -200,28 +271,20 @@ export default function ProfilePage() {
 
       if (deleteProfileError) throw deleteProfileError;
 
-      // Sign out
       await supabase.auth.signOut();
       toast.success("Account deleted successfully");
       router.push("/auth/login");
     } catch (error) {
       console.error("Error deleting account:", error);
       toast.error("Failed to delete account. Please try again.");
+    } finally {
+      setIsDeletingAccount(false);
     }
   };
 
-  const handleNotificationToggle = (key: keyof typeof notificationSettings) => {
-    setNotificationSettings((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-    toast.success(`${key.replace(/([A-Z])/g, ' $1').trim()} ${!notificationSettings[key] ? 'enabled' : 'disabled'}`);
-  };
-
   const isUpdating = updateProfileMutation.isPending || uploadAvatarMutation.isPending;
-  const isUpdatingPassword = updatePasswordMutation.isPending;
 
-  if (loading || isLoading) {
+  if (userLoading || profileLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -253,34 +316,61 @@ export default function ProfilePage() {
                       {user.username?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <label
-                    htmlFor="avatar-upload"
-                    className={cn(
-                      "absolute bottom-0 right-0 p-1.5 bg-primary text-white rounded-full cursor-pointer transition-colors shadow-lg",
-                      isUpdating ? "opacity-50 cursor-not-allowed" : "hover:bg-primary/90"
+                  
+                  {/* Avatar actions overlay */}
+                  <div className="absolute -bottom-2 left-0 right-0 flex justify-center gap-1">
+                    <label
+                      htmlFor="avatar-upload"
+                      className={cn(
+                        "p-1.5 bg-primary text-white rounded-full cursor-pointer transition-colors shadow-lg",
+                        isUpdating ? "opacity-50 cursor-not-allowed" : "hover:bg-primary/90"
+                      )}
+                    >
+                      {isUpdating ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Camera className="h-3 w-3" />
+                      )}
+                      <input
+                        id="avatar-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleAvatarChange}
+                        disabled={isUpdating}
+                      />
+                    </label>
+                    
+                    {user.avatar_url && !avatarFile && (
+                      <button
+                        onClick={() => setIsDeleteAvatarDialogOpen(true)}
+                        className="p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                        title="Remove avatar"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     )}
-                  >
-                    {isUpdating ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Camera className="h-4 w-4" />
-                    )}
-                    <input
-                      id="avatar-upload"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleAvatarChange}
-                      disabled={isUpdating}
-                    />
-                  </label>
+                  </div>
                 </div>
+                
                 <h3 className="mt-4 text-lg font-semibold">{user.username || "User"}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
-                <Badge variant="secondary" className="mt-2 capitalize">
-                  {user.role || "User"}
-                </Badge>
               </div>
+
+              {/* Avatar preview info */}
+              {avatarFile && (
+                <div className="mt-4 p-2 bg-blue-50 dark:bg-blue-950/20 rounded-lg text-center">
+                  <p className="text-xs text-blue-600 dark:text-blue-400">
+                    New avatar selected: {avatarFile.name}
+                  </p>
+                  <button
+                    onClick={handleRemoveAvatarFile}
+                    className="text-xs text-red-500 hover:text-red-700 mt-1"
+                  >
+                    Remove selected
+                  </button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -288,25 +378,19 @@ export default function ProfilePage() {
             <CardContent className="pt-6">
               <nav className="space-y-1">
                 <Button variant="ghost" className="w-full justify-start gap-2">
-                  <a href="#profile">
+                  <a className="flex items-center gap-2" href="#profile">
                     <User className="h-4 w-4" />
                     Profile
                   </a>
                 </Button>
                 <Button variant="ghost" className="w-full justify-start gap-2">
-                  <a href="#notifications">
-                    <Bell className="h-4 w-4" />
-                    Notifications
-                  </a>
-                </Button>
-                <Button variant="ghost" className="w-full justify-start gap-2">
-                  <a href="#password">
+                  <a className="flex items-center gap-2" href="#password">
                     <Lock className="h-4 w-4" />
                     Password
                   </a>
                 </Button>
                 <Button variant="ghost" className="w-full justify-start gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40">
-                  <a href="#danger">
+                  <a className="flex items-center gap-2" href="#danger">
                     <Trash2 className="h-4 w-4" />
                     Danger Zone
                   </a>
@@ -390,72 +474,6 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
 
-          {/* Notifications Section */}
-          <Card id="notifications">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5 text-primary" />
-                Notification Settings
-              </CardTitle>
-              <CardDescription>
-                Configure how you receive notifications
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <FieldLabel className="font-medium">Email Notifications</FieldLabel>
-                  <FieldDescription>
-                    Receive notifications via email
-                  </FieldDescription>
-                </div>
-                <Switch
-                  checked={notificationSettings.emailNotifications}
-                  onCheckedChange={() => handleNotificationToggle("emailNotifications")}
-                />
-              </div>
-              <FieldSeparator />
-              <div className="flex items-center justify-between">
-                <div>
-                  <FieldLabel className="font-medium">Push Notifications</FieldLabel>
-                  <FieldDescription>
-                    Receive push notifications in browser
-                  </FieldDescription>
-                </div>
-                <Switch
-                  checked={notificationSettings.pushNotifications}
-                  onCheckedChange={() => handleNotificationToggle("pushNotifications")}
-                />
-              </div>
-              <FieldSeparator />
-              <div className="flex items-center justify-between">
-                <div>
-                  <FieldLabel className="font-medium">Task Reminders</FieldLabel>
-                  <FieldDescription>
-                    Get reminders for upcoming tasks
-                  </FieldDescription>
-                </div>
-                <Switch
-                  checked={notificationSettings.taskReminders}
-                  onCheckedChange={() => handleNotificationToggle("taskReminders")}
-                />
-              </div>
-              <FieldSeparator />
-              <div className="flex items-center justify-between">
-                <div>
-                  <FieldLabel className="font-medium">Project Updates</FieldLabel>
-                  <FieldDescription>
-                    Receive updates about project changes
-                  </FieldDescription>
-                </div>
-                <Switch
-                  checked={notificationSettings.projectUpdates}
-                  onCheckedChange={() => handleNotificationToggle("projectUpdates")}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Password Section */}
           <Card id="password">
             <CardHeader>
@@ -472,15 +490,31 @@ export default function ProfilePage() {
                 <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
                   <Field>
                     <FieldLabel htmlFor="currentPassword">Current Password</FieldLabel>
-                    <Input
-                      id="currentPassword"
-                      type="password"
-                      placeholder="Enter current password"
-                      {...passwordForm.register("currentPassword")}
-                      className={cn(
-                        passwordForm.formState.errors.currentPassword && "border-red-500 focus-visible:ring-red-500"
-                      )}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="currentPassword"
+                        type={showCurrentPassword ? "text" : "password"}
+                        placeholder="Enter current password"
+                        {...passwordForm.register("currentPassword")}
+                        className={cn(
+                          "pr-10",
+                          passwordForm.formState.errors.currentPassword && "border-red-500 focus-visible:ring-red-500"
+                        )}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      >
+                        {showCurrentPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                     {passwordForm.formState.errors.currentPassword && (
                       <p className="text-sm text-red-500 mt-1">
                         {passwordForm.formState.errors.currentPassword.message}
@@ -490,15 +524,31 @@ export default function ProfilePage() {
 
                   <Field>
                     <FieldLabel htmlFor="newPassword">New Password</FieldLabel>
-                    <Input
-                      id="newPassword"
-                      type="password"
-                      placeholder="Enter new password"
-                      {...passwordForm.register("newPassword")}
-                      className={cn(
-                        passwordForm.formState.errors.newPassword && "border-red-500 focus-visible:ring-red-500"
-                      )}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="newPassword"
+                        type={showNewPassword ? "text" : "password"}
+                        placeholder="Enter new password"
+                        {...passwordForm.register("newPassword")}
+                        className={cn(
+                          "pr-10",
+                          passwordForm.formState.errors.newPassword && "border-red-500 focus-visible:ring-red-500"
+                        )}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                      >
+                        {showNewPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                     {passwordForm.formState.errors.newPassword ? (
                       <p className="text-sm text-red-500 mt-1">
                         {passwordForm.formState.errors.newPassword.message}
@@ -512,15 +562,31 @@ export default function ProfilePage() {
 
                   <Field>
                     <FieldLabel htmlFor="confirmPassword">Confirm New Password</FieldLabel>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      placeholder="Confirm new password"
-                      {...passwordForm.register("confirmPassword")}
-                      className={cn(
-                        passwordForm.formState.errors.confirmPassword && "border-red-500 focus-visible:ring-red-500"
-                      )}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="Confirm new password"
+                        {...passwordForm.register("confirmPassword")}
+                        className={cn(
+                          "pr-10",
+                          passwordForm.formState.errors.confirmPassword && "border-red-500 focus-visible:ring-red-500"
+                        )}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                     {passwordForm.formState.errors.confirmPassword && (
                       <p className="text-sm text-red-500 mt-1">
                         {passwordForm.formState.errors.confirmPassword.message}
@@ -609,10 +675,17 @@ export default function ProfilePage() {
                           </Button>
                           <Button
                             variant="destructive"
-                            disabled={deleteConfirmText !== "DELETE"}
+                            disabled={deleteConfirmText !== "DELETE" || isDeletingAccount}
                             onClick={handleDeleteAccount}
                           >
-                            Delete Account
+                            {isDeletingAccount ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Deleting...
+                              </>
+                            ) : (
+                              "Delete Account"
+                            )}
                           </Button>
                         </DialogFooter>
                       </DialogContent>
@@ -624,6 +697,37 @@ export default function ProfilePage() {
           </Card>
         </div>
       </div>
+
+      {/* Delete Avatar Confirmation Dialog */}
+      <Dialog open={isDeleteAvatarDialogOpen} onOpenChange={setIsDeleteAvatarDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Avatar?</DialogTitle>
+            <DialogDescription>
+              This will remove your current profile picture. You can upload a new one later.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteAvatarDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteAvatar}
+              disabled={isDeletingAvatar}
+            >
+              {isDeletingAvatar ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                "Remove Avatar"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

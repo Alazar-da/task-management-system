@@ -32,7 +32,10 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
     }
   }, [isCollapsed, isMounted]);
 
-  const isAuthPage = pathname === "/auth/login" || pathname.startsWith("/auth/reset-password");
+ const isAuthPage = pathname === "/auth/login" || 
+                   pathname === "/auth/forgot-password" || 
+                   pathname === "/auth/reset-password" ||
+                   pathname.startsWith("/auth/");
 
   const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed);

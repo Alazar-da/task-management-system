@@ -63,7 +63,7 @@ export default function NavBar({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([
+/*   const [notifications, setNotifications] = useState<Notification[]>([
     { 
       id: "1", 
       title: "Task assigned to you", 
@@ -101,7 +101,7 @@ export default function NavBar({
       link: "/tasks/3"
     },
   ]);
-  
+   */
   const { theme, setTheme } = useTheme();
   const supabase = createClient();
   const { user } = useUser();
@@ -111,7 +111,7 @@ export default function NavBar({
   const getInitials = (username?: string) =>
     username?.split(" ")[0]?.slice(0, 2).toUpperCase() || "U";
 
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  /* const unreadCount = notifications.filter((n) => n.unread).length; */
 
   // Handle search
   useEffect(() => {
@@ -145,7 +145,7 @@ export default function NavBar({
     router.push(`/tasks/${taskId}`);
   };
 
-  const dismissNotification = (id: string) => {
+/*   const dismissNotification = (id: string) => {
     setNotifications(notifications.filter(n => n.id !== id));
   };
 
@@ -173,7 +173,7 @@ export default function NavBar({
       default:
         return <Check className="h-4 w-4 text-gray-400" />;
     }
-  };
+  }; */
 
   return (
     <header
@@ -321,7 +321,7 @@ export default function NavBar({
         </Button>
 
         {/* Notifications */}
-        <DropdownMenu>
+{/*         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
@@ -410,7 +410,7 @@ export default function NavBar({
               View all notifications
             </DropdownMenuItem>
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu> */}
 
         {/* User Profile */}
         <DropdownMenu>

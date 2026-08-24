@@ -12,7 +12,7 @@ export const userService = {
   async getProfile(userId: string): Promise<User> {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, username, email, avatar_url, role, created_at")
+      .select("id, username, email, avatar_url, created_at")
       .eq("id", userId)
       .single();
 
@@ -32,38 +32,108 @@ export const userService = {
     return data;
   },
 
-  async uploadAvatar(file: File, userId: string): Promise<string> {
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${userId}/avatar.${fileExt}`;
-    const filePath = `avatars/${fileName}`;
 
+async uploadAvatar(file: File, userId: string): Promise<string> {
+  try {
+    const fileExt = file.name.split(".").pop();
+    const fileName = `avatar-${userId}-${Date.now()}.${fileExt}`;
+    
+    // Upload directly to the bucket root
     const { error: uploadError } = await supabase.storage
       .from("profiles")
-      .upload(filePath, file, {
+      .upload(fileName, file, {
         upsert: true,
         contentType: file.type,
+        cacheControl: '3600',
       });
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      console.error("Upload error:", uploadError);
+      throw uploadError;
+    }
 
-    const { data } = supabase.storage.from("profiles").getPublicUrl(filePath);
-    return data.publicUrl;
-  },
-
-  async deleteAvatar(userId: string): Promise<void> {
-    const fileName = `${userId}/avatar`;
-    const { error } = await supabase.storage
+    // Get the public URL
+    const { data } = supabase.storage
       .from("profiles")
-      .remove([`avatars/${fileName}`]);
+      .getPublicUrl(fileName);
 
-    if (error) throw error;
-  },
+    return data.publicUrl;
+  } catch (error) {
+    console.error("Error in uploadAvatar:", error);
+    throw error;
+  }
+},
 
-  async updatePassword(newPassword: string): Promise<void> {
+async deleteAvatar(userId: string, avatarUrl?: string): Promise<void> {
+  try {
+    // If there's no avatar URL, nothing to delete
+    if (!avatarUrl) {
+      // Just update the profile to remove avatar_url
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: null })
+        .eq("id", userId);
+
+      if (updateError) throw updateError;
+      return;
+    }
+
+    // Extract the file name from the URL
+    // URL format: https://xxx.supabase.co/storage/v1/object/public/profiles/avatar-userId-timestamp.ext
+    const urlParts = avatarUrl.split('/');
+    const fileName = urlParts[urlParts.length - 1];
+    
+    // Delete from storage using just the filename (since it's at the root of the bucket)
+    const { error: storageError } = await supabase.storage
+      .from("profiles")
+      .remove([fileName]);
+
+    if (storageError) {
+      console.error("Storage delete error:", storageError);
+      // Continue even if storage delete fails
+    }
+
+    // Update profile to remove avatar_url
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ avatar_url: null })
+      .eq("id", userId);
+
+    if (updateError) throw updateError;
+  } catch (error) {
+    console.error("Error in deleteAvatar:", error);
+    throw error;
+  }
+},
+
+  async updatePassword(currentPassword: string, newPassword: string): Promise<void> {
+    // First verify current password
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.email) {
+      throw new Error("Unable to verify current password");
+    }
+
+    // Verify current password by attempting to sign in
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+
+    if (signInError) {
+      throw new Error("Current password is incorrect");
+    }
+
+    // If current password is correct, update to new password
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     });
-    if (error) throw error;
+
+    if (error) {
+      if (error.message.includes("same as the old password")) {
+        throw new Error("New password must be different from current password");
+      }
+      throw error;
+    }
   },
 };
 
@@ -73,7 +143,7 @@ export function useProfile(userId: string | undefined) {
     queryKey: queryKeys.profiles.detail(userId || ''),
     queryFn: () => userService.getProfile(userId!),
     enabled: !!userId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -112,12 +182,30 @@ export function useUploadAvatar() {
 
 export function useUpdatePassword() {
   return useMutation({
-    mutationFn: (newPassword: string) => userService.updatePassword(newPassword),
+    mutationFn: ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) =>
+      userService.updatePassword(currentPassword, newPassword),
     onSuccess: () => {
       toast.success("Password updated successfully");
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to update password");
+    },
+  });
+}
+
+export function useDeleteAvatar() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ userId, avatarUrl }: { userId: string; avatarUrl?: string }) =>
+      userService.deleteAvatar(userId, avatarUrl),
+    onSuccess: (_, { userId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
+      toast.success("Avatar removed successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to remove avatar");
     },
   });
 }

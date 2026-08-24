@@ -15,6 +15,7 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
+
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => {
             request.cookies.set(name, value);
@@ -32,34 +33,32 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Check if the user is logged in
+  const pathname = request.nextUrl.pathname;
+
+  // Redirect homepage to login
+  if (pathname === "/") {
+    return NextResponse.redirect(
+      new URL("/auth/login", request.url)
+    );
+  }
+
+  // Get authenticated user
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-   if (request.nextUrl.pathname === '/') {
-    return NextResponse.redirect(new URL('/auth/login', request.url))
-  }
-
-  // User is not logged in
+  // Protect all non-auth pages
   if (!user) {
     return NextResponse.redirect(
       new URL("/auth/login", request.url)
     );
   }
-  
 
-  // User is logged in
   return response;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Protect application pages.
-     * Auth pages, API routes, static files, etc. are excluded.
-     */
-    "/((?!auth|api|_next/static|_next/image|favicon.ico).*)",
+    "/((?!auth|api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
-
