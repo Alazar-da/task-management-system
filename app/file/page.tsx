@@ -479,14 +479,13 @@ export default function FilePage() {
           />
         </div>
         <div className="flex gap-2">
-          <ToggleGroup type="single" value={viewMode} onValueChange={(v:any) => v && setViewMode(v as 'grid' | 'list')}>
-            <ToggleGroupItem value="grid" aria-label="Grid view">
+             <Button variant={viewMode === "grid" ? "default" : "ghost"} onClick={() => setViewMode("grid")}>
               <Grid3x3 className="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="list" aria-label="List view">
+            </Button>
+            <Button variant={viewMode === "list" ? "default" : "ghost"} onClick={() => setViewMode("list")}>
               <LayoutList className="h-4 w-4" />
-            </ToggleGroupItem>
-          </ToggleGroup>
+            </Button>
+          
         </div>
       </div>
 

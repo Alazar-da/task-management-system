@@ -144,23 +144,23 @@ export default function Projects() {
             <SelectItem value="On Hold">On Hold</SelectItem>
           </SelectContent>
         </Select>
-        <ToggleGroup value={viewMode as any} onValueChange={(v:any) => v && setViewMode(v as ViewMode)}>
-          <ToggleGroupItem value="grid" aria-label="Grid view">
+        <div className="flex gap-2">
+          <Button  variant={viewMode === "grid" ? "default" : "ghost"} onClick={() => setViewMode("grid")}>
             <Grid3x3 className="h-4 w-4" />
-          </ToggleGroupItem>
-          <ToggleGroupItem value="list" aria-label="List view">
+          </Button>
+          <Button variant={viewMode === "list" ? "default" : "ghost"} onClick={() => setViewMode("list")}>
             <LayoutList className="h-4 w-4" />
-          </ToggleGroupItem>
-        </ToggleGroup>
+          </Button>
+        </div>
       </div>
 
       {/* Project Grid/List */}
       {filteredProjects && filteredProjects.length > 0 ? (
         <div className={cn(
           "grid gap-6",
-          viewMode === "grid" 
-            ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" 
-            : "grid-cols-1"
+          viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"
+
+
         )}>
           {filteredProjects.map((project) => (
             <ProjectCard
