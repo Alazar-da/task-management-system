@@ -86,7 +86,7 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
               <DialogTitle>Add Member to Project</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <Select value={selectedUser?.username} onValueChange={setSelectedUser}>
+              <Select value={selectedUser?.username} onValueChange={setSelectedUser as any}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a user" />
                 </SelectTrigger>

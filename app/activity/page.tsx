@@ -267,7 +267,7 @@ export default function ActivityPage() {
             className="pl-9"
           />
         </div>
-        <Select value={filterAction} onValueChange={setFilterAction}>
+        <Select value={filterAction}   onValueChange={(value) => setFilterAction(value ?? "all")}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by action" />
           </SelectTrigger>

@@ -631,7 +631,7 @@ export default function FilePage() {
           <div className="space-y-4 py-4">
             <div>
               <label className="text-sm font-medium">Select Task</label>
-              <Select value={uploadTaskId} onValueChange={setUploadTaskId}>
+              <Select value={uploadTaskId}   onValueChange={(value) => setUploadTaskId(value ?? "")}>
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Select a task" />
                 </SelectTrigger>

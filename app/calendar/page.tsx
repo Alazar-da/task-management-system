@@ -57,6 +57,15 @@ const statusColors = {
   done: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
 };
 
+type TaskPriority = keyof typeof priorityColors;
+type TaskStatus = keyof typeof statusColors;
+
+const getPriorityClass = (priority?: string) =>
+  priorityColors[(priority as TaskPriority) ?? 'medium'];
+
+const getStatusClass = (status?: string) =>
+  statusColors[(status as TaskStatus) ?? 'todo'];
+
 export default function CalendarPage() {
   const router = useRouter();
   const { user } = useUser();
@@ -232,7 +241,7 @@ export default function CalendarPage() {
           <Filter className="h-4 w-4 text-gray-400" />
           <span className="text-sm text-gray-500">Filters:</span>
         </div>
-        <Select value={filterProject} onValueChange={setFilterProject}>
+        <Select value={filterProject}   onValueChange={(value) => setFilterProject(value ?? "all")}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="All Projects" />
           </SelectTrigger>
@@ -249,7 +258,7 @@ export default function CalendarPage() {
           </SelectContent>
         </Select>
 
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
+        <Select value={filterStatus}   onValueChange={(value) => setFilterStatus(value ?? "all")}>
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="All Status" />
           </SelectTrigger>
@@ -459,7 +468,7 @@ export default function CalendarPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{task.title}</p>
                             <div className="flex items-center gap-2 mt-1">
-                              <Badge className={cn("text-[10px]", priorityColors[task.priority])}>
+                              <Badge className={cn("text-[10px]", getPriorityClass(task.priority))}>
                                 {task.priority}
                               </Badge>
                               <span className="text-xs text-gray-500">{dateLabel}</span>
@@ -534,10 +543,10 @@ export default function CalendarPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="flex items-center gap-4 flex-wrap">
-              <Badge className={cn("font-medium", statusColors[selectedTask?.status || 'todo'])}>
+              <Badge className={cn("font-medium", getStatusClass(selectedTask?.status || 'todo'))}>
                 {selectedTask?.status?.replace('_', ' ').toUpperCase()}
               </Badge>
-              <Badge className={cn("font-medium", priorityColors[selectedTask?.priority || 'medium'])}>
+              <Badge className={cn("font-medium", getPriorityClass(selectedTask?.priority || 'medium'))}>
                 {selectedTask?.priority?.toUpperCase()}
               </Badge>
             </div>

@@ -188,7 +188,7 @@ export default function TasksPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4 border rounded-lg bg-gray-50 dark:bg-gray-900/50">
             <Select
               value={filters.project}
-              onValueChange={(value) => setFilters({ ...filters, project: value })}
+              onValueChange={(value:any) => setFilters({ ...filters, project: value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Project" />
@@ -208,7 +208,7 @@ export default function TasksPage() {
 
             <Select
               value={filters.priority}
-              onValueChange={(value) => setFilters({ ...filters, priority: value })}
+              onValueChange={(value:any) => setFilters({ ...filters, priority: value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Priority" />
@@ -224,7 +224,7 @@ export default function TasksPage() {
 
             <Select
               value={filters.assignee}
-              onValueChange={(value) => setFilters({ ...filters, assignee: value })}
+              onValueChange={(value:any) => setFilters({ ...filters, assignee: value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Assignee" />
@@ -242,7 +242,7 @@ export default function TasksPage() {
 
             <Select
               value={filters.status}
-              onValueChange={(value) => setFilters({ ...filters, status: value })}
+              onValueChange={(value:any) => setFilters({ ...filters, status: value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Status" />

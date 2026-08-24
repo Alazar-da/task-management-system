@@ -322,7 +322,7 @@ export default function NavBar({
 
         {/* Notifications */}
 {/*         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          <DropdownMenuTrigger>
             <Button
               variant="ghost"
               size="icon"
@@ -414,7 +414,7 @@ export default function NavBar({
 
         {/* User Profile */}
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          <DropdownMenuTrigger>
             <Button
               variant="ghost"
               className="flex items-center gap-2 px-2 hover:bg-gray-100 dark:hover:bg-gray-800 h-10 rounded-lg"

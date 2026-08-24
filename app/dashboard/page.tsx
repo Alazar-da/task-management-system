@@ -235,7 +235,7 @@ export default function DashboardPage() {
                     outerRadius={80}
                     paddingAngle={5}
                     dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent }) => `${name} ${((percent? percent : 0) * 100).toFixed(0)}%`}
                   >
                     {statusData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
@@ -370,6 +370,13 @@ export default function DashboardPage() {
                     urgent: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
                   };
 
+                  type TaskPriority = keyof typeof priorityColors;
+
+
+const getPriorityClass = (priority?: string) =>
+  priorityColors[(priority as TaskPriority) ?? 'medium'];
+
+
                   return (
                     <div
                       key={task.id}
@@ -379,7 +386,7 @@ export default function DashboardPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{task.title}</p>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <Badge className={cn("text-xs", priorityColors[task.priority])}>
+                          <Badge className={cn("text-xs", getPriorityClass(task.priority))}>
                             {task.priority.toUpperCase()}
                           </Badge>
                           <Badge variant="outline" className="text-xs">
