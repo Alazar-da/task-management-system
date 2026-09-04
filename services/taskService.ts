@@ -240,105 +240,133 @@ async getTask(id: string): Promise<Task> {
   }
 },
 
-  async createTask(input: CreateTaskInput): Promise<Task> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("No authenticated user");
+ async createTask(input: CreateTaskInput): Promise<Task> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("No authenticated user");
 
-      const { data, error } = await supabase
-        .from("tasks")
-        .insert({
-          ...input,
-          created_by: user.id,
-          status: 'todo',
-          order_index: 0,
-        })
-        .select()
-        .single();
+    const { data, error } = await supabase
+      .from("tasks")
+      .insert({
+        ...input,
+        created_by: user.id,
+        status: 'todo',
+        order_index: 0,
+      })
+      .select()
+      .single();
 
-      if (error) throw error;
+    if (error) throw error;
 
-      // Add assignee to project if set
-      if (input.assignee_id) {
-        try {
-          await supabase
-            .from("project_members")
-            .upsert({
-              project_id: input.project_id,
-              user_id: input.assignee_id,
-              role: 'member',
-            }, { onConflict: 'project_id,user_id' });
-        } catch (memberError) {
-          console.error("Error adding assignee to project:", memberError);
+    // Add assignee to project if set
+    if (input.assignee_id) {
+      try {
+        // Check if the assignee is the project creator (admin)
+        const { data: projectData, error: projectError } = await supabase
+          .from("projects")
+          .select("created_by")
+          .eq("id", input.project_id)
+          .single();
+
+        if (projectError) {
+          console.error("Error fetching project data:", projectError);
         }
+
+        // Determine role: 'admin' if assignee is project creator, otherwise 'member'
+        const role = projectData?.created_by === input.assignee_id ? 'admin' : 'member';
+
+        await supabase
+          .from("project_members")
+          .upsert({
+            project_id: input.project_id,
+            user_id: input.assignee_id,
+            role: role,
+          }, { onConflict: 'project_id,user_id' });
+      } catch (memberError) {
+        console.error("Error adding assignee to project:", memberError);
       }
-
-      // Log activity
-      await taskService.logActivity(data.id, 'created', { 
-        title: data.title 
-      });
-
-      return data;
-    } catch (error) {
-      console.error("Error in createTask:", error);
-      throw error;
     }
-  },
 
-  async updateTask(input: UpdateTaskInput): Promise<Task> {
-    try {
-      const { id, ...updates } = input;
-      
-      // Get old task data
-      const { data: oldTask } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("id", id)
-        .single();
+    // Log activity
+    await taskService.logActivity(data.id, 'created', { 
+      title: data.title 
+    });
 
-      const { data, error } = await supabase
-        .from("tasks")
-        .update(updates)
-        .eq("id", id)
-        .select()
-        .single();
+    return data;
+  } catch (error) {
+    console.error("Error in createTask:", error);
+    throw error;
+  }
+},
 
-      if (error) throw error;
+async updateTask(input: UpdateTaskInput): Promise<Task> {
+  try {
+    const { id, ...updates } = input;
+    
+    // Get old task data
+    const { data: oldTask } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-      // If assignee changed, add new assignee to project
-      if (updates.assignee_id && updates.assignee_id !== oldTask?.assignee_id) {
-        try {
-          await supabase
-            .from("project_members")
-            .upsert({
-              project_id: data.project_id,
-              user_id: updates.assignee_id,
-              role: 'member',
-            }, { onConflict: 'project_id,user_id' });
-        } catch (memberError) {
-          console.error("Error adding assignee to project:", memberError);
+    const { data, error } = await supabase
+      .from("tasks")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // If assignee changed, add new assignee to project
+    if (updates.assignee_id && updates.assignee_id !== oldTask?.assignee_id) {
+      try {
+        // Check if the assignee is the project creator (admin)
+        const { data: projectData, error: projectError } = await supabase
+          .from("projects")
+          .select("created_by")
+          .eq("id", data.project_id)
+          .single();
+
+        if (projectError) {
+          console.error("Error fetching project data:", projectError);
         }
+
+        // Determine role: 'admin' if assignee is project creator, otherwise 'member'
+        const role = projectData?.created_by === updates.assignee_id ? 'admin' : 'member';
+
+        await supabase
+          .from("project_members")
+          .upsert({
+            project_id: data.project_id,
+            user_id: updates.assignee_id,
+            role: role,
+          }, { onConflict: 'project_id,user_id' });
+      } catch (memberError) {
+        console.error("Error adding assignee to project:", memberError);
       }
-
-      // Log activity
-      if (oldTask) {
-        const changes: any = {};
-        for (const key of Object.keys(updates)) {
-          if (oldTask[key] !== (updates as any)[key]) {
-            changes[key] = { from: oldTask[key], to: (updates as any)[key] };
-          }
-        }
-        if (Object.keys(changes).length > 0) {
-          await taskService.logActivity(id, 'updated', { changes });
-        }
-      }
-
-      return data;
-    } catch (error) {
-      console.error("Error in updateTask:", error);
-      throw error;
     }
-  },
+
+    // Log activity
+    if (oldTask) {
+      const changes: any = {};
+      for (const key of Object.keys(updates)) {
+        if (oldTask[key] !== (updates as any)[key]) {
+          changes[key] = { from: oldTask[key], to: (updates as any)[key] };
+        }
+      }
+      if (Object.keys(changes).length > 0) {
+        await taskService.logActivity(id, 'updated', { changes });
+      }
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in updateTask:", error);
+    throw error;
+  }
+},
 
   async deleteTask(id: string): Promise<void> {
     try {

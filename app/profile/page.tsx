@@ -263,6 +263,7 @@ export default function ProfilePage() {
           await supabase.storage.from("profiles").remove([`avatars/${filePath}`]);
         }
       }
+      
 
       const { error: deleteProfileError } = await supabase
         .from("profiles")

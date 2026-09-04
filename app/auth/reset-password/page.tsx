@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,13 +36,12 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isValidToken, setIsValidToken] = useState<boolean | null>(null);
+  const [isValidSession, setIsValidSession] = useState<boolean | null>(null);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    watch,
   } = useForm<PasswordFormValues>({
     resolver: zodResolver(passwordSchema),
     defaultValues: {
@@ -52,37 +50,33 @@ export default function ResetPasswordPage() {
     },
   });
 
-  // Check if we have a valid session/token
+  // Check if we have a valid session
   useEffect(() => {
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         
-        // If there's no session, the user might have clicked the reset link
-        // The Supabase magic link should have set a session
-        if (!session) {
+        if (session) {
+          setIsValidSession(true);
+        } else {
           // Check if we have a hash fragment (Supabase sends tokens in the URL hash)
           const hash = window.location.hash;
           if (hash && hash.includes('access_token')) {
-            // The token is in the URL, Supabase will handle it automatically
-            // We just need to wait for the session to be set
+            // The token is in the URL, wait for session to be set
             const { data: { session: newSession } } = await supabase.auth.getSession();
             if (newSession) {
-              setIsValidToken(true);
+              setIsValidSession(true);
               return;
             }
           }
           
           // If we're here, the user might be accessing the page directly without a valid token
-          // Show error but allow them to request a new one
-          setIsValidToken(false);
+          setIsValidSession(false);
           toast.error("Invalid or expired reset link. Please request a new one.");
-        } else {
-          setIsValidToken(true);
         }
       } catch (error) {
         console.error("Error checking session:", error);
-        setIsValidToken(false);
+        setIsValidSession(false);
       }
     };
 
@@ -123,7 +117,7 @@ export default function ResetPasswordPage() {
   };
 
   // If the token is invalid, show a message with option to request a new one
-  if (isValidToken === false) {
+  if (isValidSession === false) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 p-4">
         <Card className="w-full max-w-md">
@@ -149,12 +143,12 @@ export default function ResetPasswordPage() {
             </Button>
           </CardContent>
           <CardFooter className="flex justify-center">
-            <Link 
+            <a 
               href="/auth/login" 
               className="text-sm text-primary hover:underline"
             >
               Back to Login
-            </Link>
+            </a>
           </CardFooter>
         </Card>
       </div>
@@ -162,7 +156,7 @@ export default function ResetPasswordPage() {
   }
 
   // If loading, show loading state
-  if (isValidToken === null) {
+  if (isValidSession === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 p-4">
         <Card className="w-full max-w-md">
@@ -311,12 +305,12 @@ export default function ResetPasswordPage() {
         <CardFooter className="flex flex-col space-y-2">
           <div className="text-sm text-gray-500 dark:text-gray-400">
             Remember your password?{" "}
-            <Link 
+            <a 
               href="/auth/login" 
               className="text-primary hover:underline font-medium"
             >
               Sign In
-            </Link>
+            </a>
           </div>
         </CardFooter>
       </Card>
